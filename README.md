@@ -1,3 +1,7 @@
+**Disclaimer**: The entirety of this source code is derived from the main project:**https://github.com/m0bilesecurity/RMS-Runtime-Mobile-Security**
+**I have no intention of violating the original author's copyright**. My sole purpose for using this code is to build upon it by developing the new File Manager feature.**
+
+
 # Runtime Mobile Security (RMS) 📱🔥
 
 **Runtime Mobile Security (RMS)**, powered by [FRIDA](https://github.com/frida/frida), is a powerful web interface that helps you to manipulate <b>Android and iOS Apps</b> at Runtime. 
@@ -163,8 +167,11 @@ Stetho is a sophisticated debug bridge for Android applications. When enabled, d
 
 ## 10. File Manager [Upgrade]  ##
 Updated: 
+
 Direct View content file
+
 Direct Download File
+
 Direct Delete single file/ Delete multiple file
 
 ![DEMO_11_Android](/DEMO/Android/DEMO_11_File_Manager.png)
