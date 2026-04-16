@@ -1,0 +1,91 @@
+  <!-- Bootstrap core JavaScript -->
+  {% block scripts %}
+  <script src=jquery.min.js></script>
+  <script src=bootstrap.bundle.min.js></script>
+
+  <!-- Menu Toggle Script -->
+  <script>
+      $("#menu-toggle").click(function (e) {
+          e.preventDefault();
+          $("#wrapper").toggleClass("toggled");
+      });
+  </script>
+
+  <!-- Search Bar Filter-->
+  <script>
+      $(document).ready(function () {
+          $("#UserInput").on("keyup", function () {
+              var value = $(this).val().toLowerCase();
+              $("#MainTable tr").filter(function () {
+                  $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+              });
+          });
+      });
+  </script>
+    <script>
+        $(document).ready(function () {
+            $("#UserInput_Filter").on("keyup", function () {
+                var value = $(this).val().toLowerCase();
+                $("#MainTable_Filter tr").filter(function () {
+                    $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+                });
+            });
+        });
+    </script>
+
+ <!-- Toggle Buttons -->
+  <script 
+    src="//cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/js/bootstrap4-toggle.min.js">
+  </script>
+
+  <!-- highlight.js Library Loading -->
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/highlight.min.js">
+  </script>
+  <script>
+      hljs.initHighlightingOnLoad();
+  </script>
+
+  <!-- Codemirror - Textarea Editor -->
+  <script 
+    src="//cdnjs.cloudflare.com/ajax/libs/codemirror/5.52.2/codemirror.min.js">
+  </script>
+  <script 
+    src="//cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/mode/javascript/javascript.js">
+  </script>
+
+
+<!-- Config tab - Show and hide device arguments -->
+<script>
+    $("#device-type").change(function(){
+      type = $( "select option:selected" ).text().toLowerCase();
+      switch(type){
+        case "usb":
+          hide_args();
+          break;
+        case "remote":
+          show_arg('host');
+          break;
+        case "id":
+          show_arg('id');
+          break;
+        case "local":
+          hide_args();
+          break;
+      }
+    });
+    function hide_args(){
+        $('#dynamic-content').children('.form-group').each(function(){
+            $(this).addClass('d-none');
+        }); 
+    }
+  
+    function show_arg(key) {
+        hide_args();
+        $('#dynamic-content').children('.d-none').each(function(){
+            if ($(this).find('input[readonly]').attr('value') == key){
+            $(this).removeClass('d-none');
+          }
+        }); 
+    }
+  </script>
+  {% endblock %}

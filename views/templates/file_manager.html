@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  {% include 't_head.html' %}
+  <style>
+    /* ─── File Manager Styles ─── */
+    .fm-env-btn { font-size:.8rem; }
+    .fm-toolbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+    .fm-breadcrumb { font-size:.83rem; background:#f8f9fa; padding:6px 12px; border-radius:6px; word-break:break-all; margin-bottom:8px; }
+    .fm-breadcrumb a { color:#0d6efd; text-decoration:none; }
+    .fm-breadcrumb a:hover { text-decoration:underline; }
+
+    #MainTable th { white-space:nowrap; font-size:.82rem; }
+    #MainTable td { vertical-align:middle !important; font-size:.82rem; }
+    .fm-actions { display:flex; gap:3px; justify-content:center; flex-wrap:nowrap; }
+    .fm-actions .btn { font-size:.72rem; padding:2px 7px; white-space:nowrap; }
+
+    /* ─── Slide-in Viewer Panel ─── */
+    #fm-viewer {
+      position:fixed; top:0; right:0; width:55%; height:100vh;
+      background:#1e1e2e; color:#cdd6f4; z-index:9990;
+      box-shadow:-4px 0 24px rgba(0,0,0,.55);
+      display:none; flex-direction:column;
+    }
+    #fm-viewer.open { display:flex; }
+    #fm-viewer-header {
+      background:#181825; padding:10px 14px;
+      display:flex; align-items:flex-start; gap:8px;
+      border-bottom:1px solid #313244; flex-shrink:0; min-height:48px;
+    }
+    #fm-viewer-title {
+      flex:1;
+      font-size:.84rem;
+      color:#a6e3a1;
+      word-break:break-all;   /* wraps long filenames */
+      white-space:normal;     /* allow multi-line */
+      padding-right:8px;
+      padding-top:2px;        /* align with button top */
+    }
+    #fm-viewer-actions {
+      display:flex; gap:6px;
+      flex-shrink:0;          /* never shrink */
+      align-self:flex-start;  /* pin to top-right */
+    }
+    #fm-viewer-body { flex:1; overflow:auto; display:flex; flex-direction:column; }
+    #fm-viewer-body pre { margin:0; padding:14px; font-size:.78rem; line-height:1.55;
+      font-family:'Fira Code','Courier New',monospace; white-space:pre-wrap; word-break:break-all; flex:1; }
+
+    /* SQLite layout */
+    .sqlite-wrap { display:flex; flex:1; overflow:hidden; height:100%; width:100%; }
+    .sqlite-sidebar { width:190px; flex-shrink:0; background:#181825; border-right:1px solid #313244; overflow-y:auto; }
+    .sqlite-sidebar .tbl-hdr { padding:7px 12px; font-size:.72rem; color:#89b4fa; background:#181825; border-bottom:1px solid #313244; position:sticky; top:0; }
+    .sqlite-sidebar .tbl-item { padding:7px 12px; cursor:pointer; font-size:.8rem; border-bottom:1px solid #2a2a3d; transition:background .15s; }
+    .sqlite-sidebar .tbl-item:hover, .sqlite-sidebar .tbl-item.active { background:#313244; color:#a6e3a1; }
+    .sqlite-main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
+    #sqlite-qbar { display:flex; gap:6px; padding:8px 10px; background:#181825; border-bottom:1px solid #313244; flex-shrink:0; }
+    #sqlite-qinput { flex:1; background:#1e1e2e; border:1px solid #45475a; color:#cdd6f4; border-radius:4px; padding:4px 8px; font-size:.78rem; font-family:monospace; min-width:0; }
+    #sqlite-result { flex:1; overflow:auto; }
+    #sqlite-result table { font-size:.73rem; border-collapse:collapse; width:100%; }
+    #sqlite-result th { background:#313244; color:#89b4fa; padding:5px 8px; position:sticky; top:0; z-index:2; text-align:left; border:1px solid #45475a; white-space:nowrap; }
+    #sqlite-result td { padding:4px 8px; border:1px solid #313244; color:#cdd6f4; word-break:break-word; max-width:260px; }
+    #sqlite-result tr:hover td { background:#2e2e42; }
+
+    /* Hex view */
+    .hex-block { padding:12px; font-family:'Fira Code','Courier New',monospace; font-size:.71rem; line-height:1.75; }
+    .hex-row { display:flex; gap:8px; }
+    .hex-addr { color:#6c757d; min-width:70px; }
+    .hex-bytes { flex:1; color:#89b4fa; letter-spacing:.05em; }
+    .hex-ascii { color:#a6e3a1; min-width:135px; }
+
+    /* Editor */
+    #fm-editor-area { width:100%; flex:1; background:#1e1e2e; color:#cdd6f4; border:none; padding:14px;
+      font-family:'Fira Code','Courier New',monospace; font-size:.78rem; line-height:1.6; resize:none; }
+    #fm-editor-area:focus { outline:none; }
+    .editor-bar { background:#181825; border-top:1px solid #313244; padding:8px 12px; display:flex; gap:8px; align-items:center; flex-shrink:0; }
+
+    /* Spinner */
+    .fm-spin { display:inline-block; width:16px; height:16px; border:2px solid #555; border-top-color:#89b4fa;
+      border-radius:50%; animation:fmspin .6s linear infinite; vertical-align:middle; margin-left:6px; }
+    @keyframes fmspin { to { transform:rotate(360deg); } }
+
+    /* Toast */
+    #fm-toast { position:fixed; bottom:20px; right:20px; z-index:10000; min-width:220px; display:none;
+      border-radius:6px; padding:10px 16px; color:#fff; font-size:.85rem; box-shadow:0 4px 12px rgba(0,0,0,.3); }
+    /* ─── Name cell: checkbox + filename inline ─── */
+    td.fm-name-cell {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;           /* allow flex child to shrink */
+      overflow: hidden;
+    }
+    td.fm-name-cell > a,
+    td.fm-name-cell > span.fw-semibold {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+      flex: 1;
+    }
+    /* ─── Multi-select checkboxes ─── */
+    .fm-chk {
+      width:15px; height:15px; cursor:pointer; accent-color:#89b4fa;
+      margin-right:4px; vertical-align:middle; flex-shrink:0;
+    }
+    .fm-icon { vertical-align:middle; }
+    #MainTable tbody tr.fm-selected { background:rgba(137,180,250,.10); }
+    #MainTable tbody tr.fm-selected td { border-color:rgba(137,180,250,.25); }
+
+    /* ─── Selection action bar ─── */
+    #fm-sel-bar {
+      display:none; align-items:center; gap:8px; flex-wrap:wrap;
+      background:#313244; border-radius:8px;
+      padding:8px 14px; margin-bottom:8px;
+      border:1px solid #45475a;
+    }
+    #fm-sel-bar.visible { display:flex; }
+    #fm-sel-count { font-size:.84rem; color:#cdd6f4; font-weight:600; }
+  </style>
+
+  <!-- highlight.js v11 (overrides v9 from t_js_script.html) -->
+  <!-- v9 has initHighlightingOnLoad(); v11 has highlightElement() which we need -->
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+
+<body>
+<div class="d-flex" id="wrapper">
+  {% include 't_sidebar.html' %}
+  <div id="page-content-wrapper">
+    {% include 't_navbar.html' %}
+
+    <div class="container-fluid">
+      <br>
+      <h2>📂 File Manager <small class="text-muted fs-6 fw-normal">— Advanced</small></h2>
+      <div class="border-top my-3"></div>
+
+      {# ── Error banner when no session ── #}
+      {% if error %}
+      <div class="alert alert-danger" role="alert">
+        ⚠️ {{error}}
+      </div>
+      {% endif %}
+
+      {# ── Environment Quick Links ── #}
+      {% if not error %}
+      <h6 class="mb-2">🎯 <strong style="color:#dc3545">{{target_package}}</strong> — Quick paths:</h6>
+      <div class="d-flex flex-wrap gap-2 mb-3">
+      {% if mobile_OS=="Android" %}
+        {% if env.mainDirectory %}<a href="/file_manager?path={{env.mainDirectory}}" class="btn btn-sm btn-outline-secondary fm-env-btn">📁 main</a>{% endif %}
+        {% if env.filesDirectory %}<a href="/file_manager?path={{env.filesDirectory}}" class="btn btn-sm btn-outline-secondary fm-env-btn">📁 files</a>{% endif %}
+        {% if env.cacheDirectory %}<a href="/file_manager?path={{env.cacheDirectory}}" class="btn btn-sm btn-outline-secondary fm-env-btn">📁 cache</a>{% endif %}
+        {% if env.externalCacheDirectory %}<a href="/file_manager?path={{env.externalCacheDirectory}}" class="btn btn-sm btn-outline-secondary fm-env-btn">📁 extCache</a>{% endif %}
+        {% if env.codeCacheDirectory %}<a href="/file_manager?path={{env.codeCacheDirectory}}" class="btn btn-sm btn-outline-secondary fm-env-btn">📁 codeCache</a>{% endif %}
+        {% if env.obbDir %}<a href="/file_manager?path={{env.obbDir}}" class="btn btn-sm btn-outline-secondary fm-env-btn">📁 obb</a>{% endif %}
+        {% if env.packageCodePath %}<a href="/file_manager?path={{env.packageCodePath}}" class="btn btn-sm btn-outline-secondary fm-env-btn">📦 apk path</a>{% endif %}
+      {% endif %}
+      {% if mobile_OS=="iOS" %}
+        {% if env.mainDirectory %}<a href="/file_manager?path={{env.mainDirectory}}" class="btn btn-sm btn-outline-secondary fm-env-btn">📁 main</a>{% endif %}
+        {% if env.BundlePath %}<a href="/file_manager?path={{env.BundlePath}}" class="btn btn-sm btn-outline-secondary fm-env-btn">📦 bundle</a>{% endif %}
+        {% if env.CachesDirectory %}<a href="/file_manager?path={{env.CachesDirectory}}" class="btn btn-sm btn-outline-secondary fm-env-btn">📁 caches</a>{% endif %}
+        {% if env.DocumentDirectory %}<a href="/file_manager?path={{env.DocumentDirectory}}" class="btn btn-sm btn-outline-secondary fm-env-btn">📁 documents</a>{% endif %}
+        {% if env.LibraryDirectory %}<a href="/file_manager?path={{env.LibraryDirectory}}" class="btn btn-sm btn-outline-secondary fm-env-btn">📁 library</a>{% endif %}
+      {% endif %}
+      </div>
+      {% endif %}
+
+      {# ── Custom Path Input ── #}
+      <div class="fm-toolbar">
+        <input type="text" id="go-path" class="form-control form-control-sm" style="max-width:520px"
+          placeholder="Enter path (e.g. /data/data/com.example/)"
+          value="{% if currentPath %}{{currentPath}}{% endif %}">
+        <button class="btn btn-sm btn-primary" onclick="gotoPath()">Go</button>
+        {% if currentPath and files_at_path %}
+        <span class="ms-2 text-muted small">
+          Readable: <strong>{{files_at_path.readable}}</strong> &nbsp;|&nbsp;
+          Writable: <strong>{{files_at_path.writable}}</strong>
+        </span>
+        {% endif %}
+      </div>
+
+      {# ── Breadcrumb ── #}
+      {% if currentPath %}
+      <div class="fm-breadcrumb" id="fm-breadcrumb">{{currentPath}}</div>
+      {% endif %}
+
+      <div class="border-top my-2"></div>
+
+      {# ── File Table ── #}
+      {% if currentPath and files_at_path %}
+      <div class="fm-toolbar mb-1">
+        <strong class="small" id="item-count">Loading…</strong>
+        <input type="text" id="UserInput" class="form-control form-control-sm ms-auto" style="max-width:220px" placeholder="🔍 Filter…">
+      </div>
+
+      <!-- ── Multi-select action bar (hidden until items are checked) ── -->
+      <div id="fm-sel-bar">
+        <span id="fm-sel-count">0 selected</span>
+        <button class="btn btn-sm btn-outline-light" onclick="selectAll()">☑ All</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="selectNone()">☐ None</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteSelected()">&#128465; Delete Selected</button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm table-hover" id="MainTable">
+          <thead class="table-dark">
+            <tr>
+              <th class="text-center" style="width:36px">—</th>
+              <th>
+                <input type="checkbox" id="chk-all" class="fm-chk" title="Select / Deselect all" style="margin-right:6px;vertical-align:middle">
+                Name
+              </th>
+              <th class="text-center" style="width:60px">Hidden</th>
+              <th class="text-end" style="width:90px">Size</th>
+              <th class="text-center" style="width:148px">Modified</th>
+              <th class="text-center" style="min-width:230px">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+
+            {# ── Parent dir (..) ── #}
+            {% set parts = (files_at_path.path).split("/") %}
+            {% set parentParts = parts.slice(0, parts.length - 1) %}
+            {% set parent = parentParts.join("/") %}
+            {% if parent and parent != files_at_path.path %}
+            <tr>
+              <td class="text-center">⬆️</td>
+              <td colspan="4"><a href="/file_manager?path={{ parent | urlencode }}">..</a></td>
+              <td></td>
+            </tr>
+            {% endif %}
+
+            {# ── Directories first ── #}
+            {% for fname, fdata in files_at_path["files"] %}
+            {% if files_at_path.files[fname].attributes.isDirectory %}
+            {% set dpath = files_at_path.path + "/" + fname %}
+            <tr data-fpath="{{ dpath }}">
+              <td class="text-center"><span class="fm-icon">📁</span></td>
+              <td class="fm-name-cell">
+                <input type="checkbox" class="fm-chk" data-path="{{ dpath }}" data-name="{{fname}}">
+                <a href="/file_manager?path={{ dpath | urlencode }}" title="{{fname}}">{{fname}}</a>
+              </td>
+              <td class="text-center">{% if files_at_path.files[fname].attributes.isHidden %}❗{% else %}—{% endif %}</td>
+              <td class="text-end text-muted">—</td>
+              <td class="text-center text-muted small">{{files_at_path.files[fname].attributes.lastModified}}</td>
+              <td>
+                <div class="fm-actions">
+                  <a href="/file_manager?path={{ dpath | urlencode }}" class="btn btn-outline-primary btn-sm">📂 Open</a>
+                  <button class="btn btn-outline-danger btn-sm"
+                    data-action="delete"
+                    data-path="{{ dpath }}"
+                    data-name="{{fname}}">🗑️</button>
+                </div>
+              </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+
+            {# ── Files ── #}
+            {% for fname, fdata in files_at_path["files"] %}
+            {% if files_at_path.files[fname].attributes.isFile %}
+            {% set fpath = files_at_path.path + "/" + fname %}
+            <tr data-fpath="{{ fpath }}" data-fname="{{fname}}">
+              <td class="text-center"><span class="fm-icon">📄</span></td>
+              <td class="fm-name-cell">
+                <input type="checkbox" class="fm-chk" data-path="{{ fpath }}" data-name="{{fname}}">
+                <span class="fw-semibold" title="{{fname}}">{{fname}}</span>
+              </td>
+              <td class="text-center">{% if files_at_path.files[fname].attributes.isHidden %}❗{% else %}—{% endif %}</td>
+              <td class="text-end text-muted small">{{files_at_path.files[fname].attributes.size}}</td>
+              <td class="text-center text-muted small">{{files_at_path.files[fname].attributes.lastModified}}</td>
+              <td>
+                <div class="fm-actions">
+                  <button class="btn btn-outline-info btn-sm"
+                    data-action="view"
+                    data-path="{{ fpath }}"
+                    data-name="{{fname}}">👁️ View</button>
+                  <a href="/file_manager/download?path={{ fpath | urlencode }}"
+                    class="btn btn-outline-success btn-sm">⬇️ DL</a>
+                  <button class="btn btn-outline-warning btn-sm"
+                    data-action="edit"
+                    data-path="{{ fpath }}"
+                    data-name="{{fname}}">✏️ Edit</button>
+                  <button class="btn btn-outline-danger btn-sm"
+                    data-action="delete"
+                    data-path="{{ fpath }}"
+                    data-name="{{fname}}">🗑️</button>
+                </div>
+              </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+    </div><!-- /.container-fluid -->
+  </div><!-- /#page-content-wrapper -->
+</div><!-- /#wrapper -->
+
+<!-- ════ FILE VIEWER PANEL ════ -->
+<div id="fm-viewer">
+  <div id="fm-viewer-header">
+    <!-- Left: icon + filename (wraps freely) -->
+    <span id="vw-icon" style="font-size:1.25rem;flex-shrink:0;padding-top:1px">📄</span>
+    <span id="vw-title">—</span>
+    <!-- Right: action buttons pinned to top-right -->
+    <div id="fm-viewer-actions">
+      <button class="btn btn-sm btn-outline-light" id="vw-dl-btn">⬇️ DL</button>
+      <button class="btn btn-sm btn-outline-light" id="vw-edit-btn">✏️ Edit</button>
+      <button class="btn btn-sm btn-outline-secondary" onclick="closeViewer()">✖</button>
+    </div>
+  </div>
+  <div id="fm-viewer-body"></div>
+</div>
+
+<!-- ════ DELETE CONFIRM MODAL ════ -->
+<div class="modal fade" id="delModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#dc3545;color:#fff">
+        <h5 class="modal-title">⚠️ Confirm Delete</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-1">Are you sure you want to delete:</p>
+        <code id="del-path-display" style="word-break:break-all;font-size:.8rem"></code>
+        <p class="text-danger mt-2 mb-0 small"><strong>This action cannot be undone.</strong></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-danger btn-sm" id="del-confirm-btn">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="fm-toast"></div>
+
+{% include 't_js_script.html' %}
+
+{% block scripts %}
+<script>
+/* ─── Active nav ─── */
+$(document).ready(function(){
+  $(".nav li").removeClass("active");
+  $('#file_manager').addClass('active');
+});
+
+/* ═══════════════════════════════
+   UTILITY HELPERS
+═══════════════════════════════ */
+function getExt(name){
+  if (!name) return '';
+  var parts = name.split('.');
+  return parts.length > 1 ? parts[parts.length-1].toLowerCase() : '';
+}
+
+function fileIcon(name){
+  var m = {
+    'db':'🗄️','sqlite':'🗄️','sqlite3':'🗄️','realm':'🗄️','db3':'🗄️',
+    'jpg':'🖼️','jpeg':'🖼️','png':'🖼️','gif':'🖼️','webp':'🖼️','bmp':'🖼️','ico':'🖼️',
+    'json':'📋','xml':'📄','plist':'📄','txt':'📝','log':'📋','md':'📝','csv':'📊',
+    'apk':'📦','ipa':'📦','zip':'🗜️','tar':'🗜️','gz':'🗜️','jar':'☕','dex':'🤖',
+    'sh':'⚙️','py':'🐍','js':'📜','ts':'📜','html':'🌐','css':'🎨',
+    'pdf':'📕','mp3':'🎵','mp4':'🎬','so':'⚙️','a':'⚙️',
+    'key':'🔑','cert':'🔐','p12':'🔐','pem':'🔐','crt':'🔐','keystore':'🔐'
+  };
+  return m[getExt(name)] || '📄';
+}
+
+function fmtSize(b){
+  b = Number(b) || 0;
+  if (!b) return '0 B';
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  if (b < 1073741824) return (b/1048576).toFixed(1) + ' MB';
+  return (b/1073741824).toFixed(2) + ' GB';
+}
+
+/* Safe HTML escape — prevents XSS in dynamically built HTML */
+function esc(s){
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+/* ═══════════════════════════════
+   FAST EXTENSION TYPE SETS
+   O(1) lookup — avoids indexOf() on arrays
+═══════════════════════════════ */
+var EXT_DB   = {db:1,sqlite:1,sqlite3:1,db3:1};
+var EXT_IMG  = {jpg:1,jpeg:1,png:1,gif:1,webp:1,bmp:1,ico:1};
+/* Known binary: skip isBinary() check — always hex view */
+var EXT_BIN  = {so:1,apk:1,ipa:1,dex:1,zip:1,gz:1,tar:1,jar:1,
+                 a:1,o:1,bin:1,elf:1,pdf:1,mp3:1,mp4:1,webm:1,
+                 ogg:1,wav:1,aac:1,p12:1,der:1,class:1,odex:1};
+/* Known text: skip isBinary() check — always text view */
+var EXT_TEXT = {xml:1,json:1,txt:1,log:1,md:1,csv:1,plist:1,
+                 html:1,htm:1,js:1,ts:1,css:1,sh:1,bash:1,
+                 py:1,kt:1,java:1,gradle:1,sql:1,yaml:1,yml:1,
+                 ini:1,cfg:1,conf:1,properties:1,toml:1,gitignore:1,
+                 smali:1,proto:1,manifest:1};
+
+/* ═══════════════════════════════
+   LRU FILE CACHE
+   Avoids re-fetching the same file within TTL window
+═══════════════════════════════ */
+var _cache    = [];          // [{key, data, ts}]
+var CACHE_MAX = 5;           // keep last 5 unique files
+var CACHE_TTL = 90000;       // 90 seconds
+
+function cacheGet(key){
+  var now = Date.now();
+  for (var i = 0; i < _cache.length; i++){
+    if (_cache[i].key === key && (now - _cache[i].ts) < CACHE_TTL)
+      return _cache[i].data;
+  }
+  return null;
+}
+function cacheSet(key, data){
+  /* Remove existing entry */
+  _cache = _cache.filter(function(e){ return e.key !== key; });
+  /* Evict oldest if over limit */
+  if (_cache.length >= CACHE_MAX) _cache.shift();
+  _cache.push({ key: key, data: data, ts: Date.now() });
+}
+
+/* ═══════════════════════════════
+   TABLE: icons + sizes on load
+═══════════════════════════════ */
+document.querySelectorAll('#MainTable tbody tr[data-fname]').forEach(function(row){
+  var name = row.getAttribute('data-fname') || '';
+  /* Icon is in a .fm-icon span inside col 1 (checkbox now lives in col 2 with the name) */
+  var ic = row.querySelector('td:first-child .fm-icon');
+  if (ic) ic.textContent = fileIcon(name);
+  /* Size is in col 4 (unchanged) */
+  var sz = row.querySelector('td:nth-child(4)');
+  if (sz) {
+    var n = Number(sz.textContent.trim());
+    if (!isNaN(n)) {
+      sz.setAttribute('data-raw', n);
+      sz.textContent = fmtSize(n);
+    }
+  }
+});
+
+(function updateCount(){
+  var el = document.getElementById('item-count');
+  if (!el) return;
+  var n = document.querySelectorAll('#MainTable tbody tr').length;
+  el.textContent = n + ' items';
+})();
+
+/* ═══════════════════════════════
+   TABLE: event delegation (fixes single-quote bug in onclick)
+═══════════════════════════════ */
+document.addEventListener('click', function(e){
+  var btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  var action = btn.getAttribute('data-action');
+  var fpath  = btn.getAttribute('data-path');
+  var fname  = btn.getAttribute('data-name');
+  if (action === 'view')   viewFile(fpath, fname);
+  if (action === 'edit')   editFile(fpath, fname);
+  if (action === 'delete') confirmDelete(fpath, fname);
+});
+
+/* ═══════════════════════════════
+   MULTI-SELECT
+═══════════════════════════════ */
+function updateSelectionBar(){
+  var checked = document.querySelectorAll('#MainTable .fm-chk:checked');
+  var bar     = document.getElementById('fm-sel-bar');
+  var count   = document.getElementById('fm-sel-count');
+  var n = checked.length;
+  if (n > 0) {
+    bar.classList.add('visible');
+    count.textContent = n + ' item' + (n > 1 ? 's' : '') + ' selected';
+  } else {
+    bar.classList.remove('visible');
+  }
+  /* Sync header checkbox state */
+  var all  = document.querySelectorAll('#MainTable tbody .fm-chk');
+  var chkAll = document.getElementById('chk-all');
+  if (!chkAll) return;
+  chkAll.indeterminate = n > 0 && n < all.length;
+  chkAll.checked       = n > 0 && n === all.length;
+}
+
+/* Individual checkbox change — highlight row + update bar */
+document.addEventListener('change', function(e){
+  var chk = e.target;
+  if (!chk.classList.contains('fm-chk') || chk.id === 'chk-all') return;
+  var row = chk.closest('tr');
+  if (row) row.classList.toggle('fm-selected', chk.checked);
+  updateSelectionBar();
+});
+
+/* Header “select-all” checkbox */
+(function(){
+  var chkAll = document.getElementById('chk-all');
+  if (!chkAll) return;
+  chkAll.addEventListener('change', function(){
+    document.querySelectorAll('#MainTable tbody .fm-chk').forEach(function(c){
+      c.checked = chkAll.checked;
+      var row = c.closest('tr');
+      if (row) row.classList.toggle('fm-selected', chkAll.checked);
+    });
+    updateSelectionBar();
+  });
+})();
+
+function selectAll(){
+  document.querySelectorAll('#MainTable tbody .fm-chk').forEach(function(c){
+    c.checked = true;
+    var row = c.closest('tr'); if (row) row.classList.add('fm-selected');
+  });
+  updateSelectionBar();
+}
+function selectNone(){
+  document.querySelectorAll('#MainTable tbody .fm-chk').forEach(function(c){
+    c.checked = false;
+    var row = c.closest('tr'); if (row) row.classList.remove('fm-selected');
+  });
+  updateSelectionBar();
+}
+
+/* Batch delete — sequential with per-item progress */
+function deleteSelected(){
+  var checked = Array.from(document.querySelectorAll('#MainTable tbody .fm-chk:checked'));
+  if (!checked.length) return;
+
+  var paths = checked.map(function(c){ return {path:c.getAttribute('data-path'), name:c.getAttribute('data-name'), el:c}; });
+  var listHTML = paths.map(function(p){ return '<li style="font-size:.8rem">' + esc(p.path) + '</li>'; }).join('');
+
+  /* Reuse delete modal for batch confirm */
+  document.getElementById('del-path-display').innerHTML = '<ul style="padding-left:16px;margin:0">' + listHTML + '</ul>';
+
+  if (_delModal) { try { _delModal.dispose(); } catch(e){} }
+  _delModal = new bootstrap.Modal(document.getElementById('delModal'));
+  _delModal.show();
+
+  /* Replace button listener */
+  var oldBtn = document.getElementById('del-confirm-btn');
+  var newBtn = oldBtn.cloneNode(true);
+  newBtn.textContent = '🗑️ Delete ' + paths.length + ' item' + (paths.length > 1 ? 's' : '');
+  oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+
+  newBtn.addEventListener('click', function(){
+    _delModal.hide();
+    newBtn.disabled = true;
+    _batchDelete(paths, 0, 0);
+  });
+}
+
+function _batchDelete(items, idx, failCount){
+  if (idx >= items.length){
+    var ok = items.length - failCount;
+    showToast(
+      (ok ? '✅ Deleted ' + ok + ' item' + (ok > 1 ? 's' : '') : '') +
+      (failCount ? ' ❌ ' + failCount + ' failed' : ''),
+      failCount ? '#dc3545' : '#40a02b'
+    );
+    /* Update count */
+    var ic = document.getElementById('item-count');
+    if (ic) ic.textContent = document.querySelectorAll('#MainTable tbody tr').length + ' items';
+    document.getElementById('chk-all').indeterminate = false;
+    document.getElementById('chk-all').checked = false;
+    document.getElementById('fm-sel-bar').classList.remove('visible');
+    return;
+  }
+
+  var item = items[idx];
+  showToast('Deleting ' + (idx+1) + '/' + items.length + '… ' + item.name, '#313244');
+
+  fetch('/file_manager/delete', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ path: item.path })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.success){
+      /* Remove row */
+      var row = document.querySelector('#MainTable tr[data-fpath="' + item.path.replace(/"/g,'\\"') + '"]');
+      if (row) row.remove();
+      /* Evict cache entry */
+      _cache = _cache.filter(function(e){ return e.key !== item.path; });
+      /* Close viewer if open on deleted file */
+      if (_vwPath === item.path) closeViewer();
+      _batchDelete(items, idx+1, failCount);
+    } else {
+      showToast('❌ Failed: ' + item.name + ' — ' + (d.error||'unknown'), '#dc3545');
+      _batchDelete(items, idx+1, failCount+1);
+    }
+  })
+  .catch(function(err){
+    showToast('❌ Network error: ' + err, '#dc3545');
+    _batchDelete(items, idx+1, failCount+1);
+  });
+}
+
+/* ═══════════════════════════════
+   BREADCRUMB
+═══════════════════════════════ */
+(function buildBreadcrumb(){
+  var el = document.getElementById('fm-breadcrumb');
+  if (!el) return;
+  var p = el.textContent.trim();
+  if (!p) return;
+  var parts = p.split('/').filter(function(x){ return x !== ''; });
+  var html = '<a href="/file_manager?path=/">/</a>';
+  var acc = '';
+  parts.forEach(function(seg, i){
+    acc += '/' + seg;
+    if (i === parts.length-1) html += ' / <strong>' + esc(seg) + '</strong>';
+    else html += ' / <a href="/file_manager?path=' + encodeURIComponent(acc) + '">' + esc(seg) + '</a>';
+  });
+  el.innerHTML = html;
+})();
+
+/* ═══════════════════════════════
+   NAVIGATION
+═══════════════════════════════ */
+function gotoPath(){
+  var v = document.getElementById('go-path').value.trim();
+  if (v) window.location.href = '/file_manager?path=' + encodeURIComponent(v);
+}
+var _gp = document.getElementById('go-path');
+if (_gp) _gp.addEventListener('keydown', function(e){ if (e.key==='Enter') gotoPath(); });
+
+/* ═══════════════════════════════
+   VIEWER PANEL
+═══════════════════════════════ */
+var _vwPath = '', _vwName = '';
+
+function openViewer(){
+  document.getElementById('fm-viewer').classList.add('open');
+  document.getElementById('page-content-wrapper').style.marginRight = '55%';
+}
+function closeViewer(){
+  document.getElementById('fm-viewer').classList.remove('open');
+  document.getElementById('page-content-wrapper').style.marginRight = '';
+  // Reset button states
+  var editBtn = document.getElementById('vw-edit-btn');
+  editBtn.style.display = '';
+  editBtn.disabled = false;
+  document.getElementById('fm-viewer-body').style.flexDirection = 'column';
+}
+
+function setVwLoading(name, icon){
+  /* Always restore edit-btn visibility when starting a new load */
+  var editBtn = document.getElementById('vw-edit-btn');
+  editBtn.style.display = '';
+  editBtn.disabled = false;
+  document.getElementById('vw-icon').textContent = icon || '⏳';
+  document.getElementById('vw-title').textContent = name;
+  document.getElementById('fm-viewer-body').innerHTML =
+    '<div class="text-center p-5" style="color:#6c757d">Loading…<span class="fm-spin"></span></div>';
+  openViewer();
+}
+
+/* ─── View file dispatcher (optimized) ─── */
+function viewFile(fp, name){
+  _vwPath = fp;
+  _vwName = name;
+  setVwLoading(name);
+
+  /* Wire up header buttons */
+  document.getElementById('vw-dl-btn').onclick = function(){
+    window.location.href = '/file_manager/download?path=' + encodeURIComponent(fp);
+  };
+  document.getElementById('vw-edit-btn').onclick = function(){ editFile(fp, name); };
+
+  var ext = getExt(name);
+
+  /* 1. DB files → SQLite viewer */
+  if (EXT_DB[ext])  { viewSQLite(fp, name); return; }
+
+  /* 2. Image files → image viewer */
+  if (EXT_IMG[ext]) { viewImage(fp, name);  return; }
+
+  /* 3. All other files → fetch with smart type detection */
+  viewFileAsText(fp, name);
+}
+
+/* ─── Text/Hex fetch with cache + smart type detection ─── */
+function viewFileAsText(fp, name){
+  var ext = getExt(name);
+
+  // ── Cache hit: instant render without any network call ──
+  var cached = cacheGet(fp);
+  if (cached) {
+    showToast('⚡ Loaded from cache', '#313244');
+    _renderFileData(cached, ext, name);
+    return;
+  }
+
+  // ── Size check from table row (avoid large binary fetches) ──
+  var row = document.querySelector('#MainTable tr[data-fpath="' + fp.replace(/"/g,'\\"') + '"]');
+  var rawSize = row ? Number(row.querySelector('td:nth-child(4)') && row.querySelector('td:nth-child(4)').getAttribute('data-raw') || 0) : 0;
+  if (rawSize > 1048576 && EXT_BIN[ext]) {
+    // Large known-binary: offer download only, skip fetch
+    document.getElementById('vw-icon').textContent = '🔢';
+    document.getElementById('fm-viewer-body').innerHTML =
+      '<div class="p-4" style="color:#f9e2af">' +
+      '⚠️ Large binary file (' + fmtSize(rawSize) + ')<br><br>' +
+      'Use <strong>⬇️ DL</strong> to download it, or click <strong>View anyway</strong> to load hex view.' +
+      '<br><br><button id="force-load-btn" class="btn btn-sm btn-outline-light">👁️ View anyway</button>' +
+      '</div>';
+    document.getElementById('force-load-btn').onclick = function(){ _fetchAndRender(fp, ext, name); };
+    return;
+  }
+
+  _fetchAndRender(fp, ext, name);
+}
+
+function _fetchAndRender(fp, ext, name){
+  fetch('/file_manager/read?path=' + encodeURIComponent(fp))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.success){ showViewerError(d.error || 'Read failed'); return; }
+      cacheSet(fp, d);   // ← cache the result
+      _renderFileData(d, ext, name);
+    })
+    .catch(function(err){ showViewerError('Network error: ' + err); });
+}
+
+function _renderFileData(d, ext, name){
+  var bytes  = base64ToBytes(d.content);
+  var hdr    = makeInfoBar(fmtSize(d.size), d.truncated);
+
+  /* Fast path: extension already tells us the type — skip isBinary() scan */
+  if (EXT_BIN[ext]){
+    document.getElementById('vw-icon').textContent = '🔢';
+    renderHex(bytes, hdr);
+    return;
+  }
+  if (EXT_TEXT[ext]){
+    document.getElementById('vw-icon').textContent = fileIcon(name);
+    var txt = new TextDecoder('utf-8', {fatal:false}).decode(bytes);
+    if (ext === 'json'){ try { txt = JSON.stringify(JSON.parse(txt), null, 2); } catch(e){} }
+    renderText(txt, ext, hdr);
+    return;
+  }
+
+  /* Unknown extension: run binary heuristic on first 512 bytes */
+  if (isBinary(bytes)){
+    document.getElementById('vw-icon').textContent = '🔢';
+    renderHex(bytes, hdr);
+  } else {
+    document.getElementById('vw-icon').textContent = fileIcon(name);
+    var txt2 = new TextDecoder('utf-8', {fatal:false}).decode(bytes);
+    renderText(txt2, ext, hdr);
+  }
+}
+
+
+function base64ToBytes(b64){
+  try {
+    return Uint8Array.from(atob(b64), function(c){ return c.charCodeAt(0); });
+  } catch(e) {
+    return new Uint8Array(0);
+  }
+}
+
+function isBinary(bytes){
+  var n = Math.min(bytes.length, 512), b = 0;
+  for (var i = 0; i < n; i++){
+    var c = bytes[i];
+    if (c === 0 || c < 8 || (c > 13 && c < 32 && c !== 27)) b++;
+  }
+  return b > n * 0.08;
+}
+
+function makeInfoBar(sizeStr, truncated){
+  return '<div style="padding:5px 12px;background:#181825;border-bottom:1px solid #313244;' +
+    'font-size:.73rem;color:#a6adc8;display:flex;gap:12px;flex-shrink:0;">' +
+    '<span>📏 ' + sizeStr + '</span>' +
+    (truncated ? '<span style="color:#f9e2af">⚠️ Truncated to 10 MB</span>' : '') +
+    '</div>';
+}
+
+function showViewerError(msg){
+  document.getElementById('fm-viewer-body').innerHTML =
+    '<div class="p-4" style="color:#f38ba8">❌ ' + esc(msg) + '</div>';
+}
+
+function renderText(txt, ext, hdr){
+  var lang = {
+    'json':'json','xml':'xml','html':'xml','plist':'xml','sh':'bash',
+    'py':'python','js':'javascript','ts':'typescript','css':'css',
+    'sql':'sql','kt':'kotlin','java':'java','md':'markdown','gradle':'groovy',
+    'yaml':'yaml','yml':'yaml','ini':'ini','properties':'properties'
+  }[ext] || '';
+  var body = document.getElementById('fm-viewer-body');
+  body.style.display = 'flex';
+  body.style.flexDirection = 'column';
+  body.innerHTML = hdr + '<pre style="flex:1;overflow:auto;margin:0"><code id="fmcode" class="' +
+    (lang ? 'language-' + lang : '') + '">' + esc(txt) + '</code></pre>';
+  // Support both hljs v9 (highlightBlock) and v11 (highlightElement)
+  if (window.hljs && lang) {
+    var el = document.getElementById('fmcode');
+    if (typeof hljs.highlightElement === 'function')      hljs.highlightElement(el);
+    else if (typeof hljs.highlightBlock === 'function')   hljs.highlightBlock(el);
+  }
+}
+
+function renderHex(bytes, hdr){
+  var rows = '', COLS = 16, MAX = 8192;
+  for (var i = 0; i < Math.min(bytes.length, MAX); i += COLS){
+    var chunk = bytes.slice(i, i + COLS);
+    var hexPart = Array.from(chunk).map(function(b){ return ('0'+b.toString(16)).slice(-2); }).join(' ');
+    var ascPart = Array.from(chunk).map(function(b){ return (b>=32&&b<127)?String.fromCharCode(b):'.'; }).join('');
+    rows += '<div class="hex-row">' +
+      '<span class="hex-addr">' + ('0000000'+i.toString(16)).slice(-8) + '</span>' +
+      '<span class="hex-bytes">' + hexPart + '</span>' +
+      '<span class="hex-ascii">' + esc(ascPart) + '</span></div>';
+  }
+  if (bytes.length > MAX)
+    rows += '<div style="color:#f9e2af;padding:8px">… showing first ' + MAX + ' bytes of ' + fmtSize(bytes.length) + '</div>';
+  document.getElementById('fm-viewer-body').innerHTML = hdr + '<div class="hex-block">' + rows + '</div>';
+}
+
+function viewImage(fp, name){
+  document.getElementById('vw-icon').textContent = '🖼️';
+  fetch('/file_manager/read?path=' + encodeURIComponent(fp))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.success){ showViewerError(d.error); return; }
+      var mimes = {
+        'jpg':'image/jpeg','jpeg':'image/jpeg','png':'image/png','gif':'image/gif',
+        'webp':'image/webp','bmp':'image/bmp','ico':'image/x-icon'
+      };
+      var mime = mimes[getExt(name)] || 'image/jpeg';
+      document.getElementById('fm-viewer-body').innerHTML =
+        '<div style="text-align:center;padding:16px">' +
+        '<img src="data:' + mime + ';base64,' + d.content +
+          '" style="max-width:100%;border-radius:6px" alt="' + esc(name) + '">' +
+        '<p style="color:#6c757d;font-size:.78rem;margin-top:8px">' + fmtSize(d.size) + '</p></div>';
+    })
+    .catch(function(err){ showViewerError('Network error: ' + err); });
+}
+
+/* ─── SQLite Viewer ─── */
+/* Store current DB path for runSQLQuery without embedding it in onclick */
+var _sqlitePath = '';
+
+function viewSQLite(fp, name){
+  document.getElementById('vw-icon').textContent = '🗄️';
+  /* Hide edit button — SQLite files are not text-editable */
+  document.getElementById('vw-edit-btn').style.display = 'none';
+
+  fetch('/file_manager/sqlite_tables?path=' + encodeURIComponent(fp))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.success){
+        // Graceful fallback: not a valid SQLite file → open as text/hex instead
+        document.getElementById('vw-edit-btn').style.display = '';
+        showToast('⚠️ Not a SQLite DB — showing as text/hex', '#f9e2af');
+        viewFileAsText(fp, name);
+        return;
+      }
+      _sqlitePath = fp;
+      buildSQLiteUI(d.tables);
+    })
+    .catch(function(err){ showViewerError('Network error: ' + err); });
+}
+
+function buildSQLiteUI(tables){
+  /* Build sidebar using data-table attribute (no inline onclick with strings) */
+  var sb = '<div class="sqlite-sidebar"><div class="tbl-hdr">TABLES (' + tables.length + ')</div>';
+  tables.forEach(function(t){
+    sb += '<div class="tbl-item" data-table="' + esc(t) + '">' + esc(t) + '</div>';
+  });
+  if (!tables.length) sb += '<div style="padding:12px;color:#888;font-size:.78rem">No tables found</div>';
+  sb += '</div>';
+
+  var mn = '<div class="sqlite-main">' +
+    '<div id="sqlite-qbar">' +
+    '<input id="sqlite-qinput" type="text" placeholder="SELECT * FROM table_name LIMIT 100">' +
+    '<button id="sqlite-run-btn" class="btn btn-sm btn-primary">▶ Run</button>' +
+    '</div>' +
+    '<div id="sqlite-result"><div style="padding:12px;color:#888;font-size:.78rem">← Click a table or write a query</div></div>' +
+    '</div>';
+
+  var body = document.getElementById('fm-viewer-body');
+  body.style.display = 'flex';
+  body.style.flexDirection = 'row';
+  body.innerHTML = '<div class="sqlite-wrap">' + sb + mn + '</div>';
+
+  /* Event listeners added AFTER injecting HTML */
+  body.querySelector('#sqlite-run-btn').addEventListener('click', function(){
+    runSQLQuery();
+  });
+  body.querySelector('#sqlite-qinput').addEventListener('keydown', function(e){
+    if (e.ctrlKey && e.key === 'Enter') runSQLQuery();
+  });
+  body.querySelectorAll('.sqlite-sidebar .tbl-item').forEach(function(item){
+    item.addEventListener('click', function(){
+      body.querySelectorAll('.sqlite-sidebar .tbl-item').forEach(function(x){ x.classList.remove('active'); });
+      item.classList.add('active');
+      var tbl = item.getAttribute('data-table');
+      body.querySelector('#sqlite-qinput').value = 'SELECT * FROM "' + tbl.replace(/"/g,'""') + '" LIMIT 500';
+      runSQLQuery();
+    });
+  });
+
+  /* Auto-load first table */
+  var first = body.querySelector('.sqlite-sidebar .tbl-item');
+  if (first) first.click();
+}
+
+function runSQLQuery(){
+  var qEl = document.getElementById('sqlite-qinput');
+  if (!qEl) return;
+  var q = qEl.value.trim();
+  if (!q) return;
+
+  var resEl = document.getElementById('sqlite-result');
+  resEl.innerHTML = '<div style="padding:12px;color:#888;font-size:.78rem">Running…<span class="fm-spin"></span></div>';
+
+  fetch('/file_manager/sqlite_query?path=' + encodeURIComponent(_sqlitePath) + '&query=' + encodeURIComponent(q))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.success){
+        resEl.innerHTML = '<div style="padding:12px;color:#f38ba8">❌ ' + esc(d.error||'Query failed') + '</div>';
+        return;
+      }
+      var h = '<div style="padding:5px 10px;color:#888;font-size:.73rem">' +
+        d.rowCount + ' rows × ' + d.columns.length + ' cols' +
+        (d.truncated ? ' <span style="color:#f9e2af">⚠️ truncated to 500</span>' : '') +
+        '</div><div style="overflow:auto"><table><thead><tr>';
+      d.columns.forEach(function(c){ h += '<th>' + esc(c) + '</th>'; });
+      h += '</tr></thead><tbody>';
+      d.rows.forEach(function(row){
+        h += '<tr>';
+        row.forEach(function(cell){
+          h += '<td>' + (cell === null ? '<em style="color:#6c757d">NULL</em>' : esc(String(cell))) + '</td>';
+        });
+        h += '</tr>';
+      });
+      h += '</tbody></table></div>';
+      resEl.innerHTML = h;
+    })
+    .catch(function(err){
+      resEl.innerHTML = '<div style="padding:12px;color:#f38ba8">❌ Network error: ' + esc(String(err)) + '</div>';
+    });
+}
+
+/* ─── Edit file ─── */
+function editFile(fp, name){
+  _vwPath = fp;
+  _vwName = name;
+  setVwLoading(name + ' [Editor]', '✏️');
+
+  /* Wire DL button; hide Edit button (already in edit mode) */
+  document.getElementById('vw-dl-btn').onclick = function(){
+    window.location.href = '/file_manager/download?path=' + encodeURIComponent(fp);
+  };
+  document.getElementById('vw-edit-btn').style.display = 'none';
+
+  fetch('/file_manager/read?path=' + encodeURIComponent(fp))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.success){ showViewerError(d.error); return; }
+
+      var bytes = base64ToBytes(d.content);
+      var txt;
+      try {
+        txt = new TextDecoder('utf-8', {fatal:true}).decode(bytes);
+      } catch(e){
+        document.getElementById('fm-viewer-body').innerHTML =
+          '<div class="p-4" style="color:#f9e2af">⚠️ This is a binary file and cannot be edited as text.' +
+          '<br><br>Use the ⬇️ Download button instead.</div>';
+        return;
+      }
+
+      var body = document.getElementById('fm-viewer-body');
+      body.style.display = 'flex';
+      body.style.flexDirection = 'column';
+      /* Set textarea value via DOM property (not innerHTML) to avoid HTML entity issues */
+      body.innerHTML =
+        '<div style="padding:5px 12px;background:#181825;border-bottom:1px solid #313244;font-size:.73rem;color:#a6adc8;flex-shrink:0">' +
+          '✏️ ' + esc(fp) +
+          (d.truncated ? ' <span style="color:#f9e2af">⚠️ Truncated to 10 MB</span>' : '') +
+        '</div>' +
+        '<textarea id="fm-editor-area"></textarea>' +
+        '<div class="editor-bar">' +
+          '<button id="save-btn" class="btn btn-success btn-sm">💾 Save to Device</button>' +
+          '<button class="btn btn-secondary btn-sm" onclick="closeViewer()">Cancel</button>' +
+          '<span id="ed-status" class="ms-auto small" style="color:#a6adc8"></span>' +
+        '</div>';
+
+      /* Set value via property — avoids HTML-entity double-encoding issue */
+      document.getElementById('fm-editor-area').value = txt;
+      document.getElementById('save-btn').addEventListener('click', saveFile);
+    })
+    .catch(function(err){ showViewerError('Network error: ' + err); });
+}
+
+function saveFile(){
+  var area = document.getElementById('fm-editor-area');
+  if (!area) return;
+  var txt = area.value;
+
+  /* UTF-8 safe base64 encoding */
+  var b64;
+  try {
+    b64 = btoa(unescape(encodeURIComponent(txt)));
+  } catch(e) {
+    showToast('❌ Encoding error: ' + e, '#dc3545');
+    return;
+  }
+
+  var statusEl = document.getElementById('ed-status');
+  if (statusEl) statusEl.textContent = 'Saving…';
+
+  fetch('/file_manager/write', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ path: _vwPath, content: b64 })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.success){
+      if (statusEl) statusEl.textContent = '✅ Saved!';
+      showToast('✅ File saved to device.', '#40a02b');
+      /* Invalidate cache so next View shows the updated content */
+      _cache = _cache.filter(function(e){ return e.key !== _vwPath; });
+    } else {
+      if (statusEl) statusEl.textContent = '❌ ' + (d.error||'Save failed');
+      showToast('❌ ' + (d.error||'Save failed'), '#dc3545');
+    }
+  })
+  .catch(function(err){
+    if (statusEl) statusEl.textContent = '❌ Network error';
+    showToast('❌ Network error: ' + err, '#dc3545');
+  });
+}
+
+/* ═══════════════════════════════
+   DELETE (single modal instance)
+═══════════════════════════════ */
+var _delModal = null;
+var _delPath  = '';
+
+function confirmDelete(fp, name){
+  _delPath = fp;
+  document.getElementById('del-path-display').textContent = fp;
+
+  /* Bootstrap: dispose old instance before creating a new one to avoid duplicate */
+  if (_delModal) {
+    try { _delModal.dispose(); } catch(e){}
+  }
+  _delModal = new bootstrap.Modal(document.getElementById('delModal'));
+  _delModal.show();
+
+  /* Replace button to remove any old listener */
+  var oldBtn = document.getElementById('del-confirm-btn');
+  var newBtn = oldBtn.cloneNode(true);
+  oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+
+  newBtn.addEventListener('click', function(){
+    fetch('/file_manager/delete', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ path: _delPath })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      _delModal.hide();
+      if (d.success){
+        showToast('🗑️ Deleted: ' + name, '#40a02b');
+        /* Remove deleted row from table without page reload */
+        document.querySelectorAll('#MainTable tr[data-fpath="' + _delPath.replace(/"/g, '\\"') + '"]')
+          .forEach(function(row){ row.remove(); });
+        /* Update count */
+        var ic = document.getElementById('item-count');
+        if (ic){
+          var n = document.querySelectorAll('#MainTable tbody tr').length;
+          ic.textContent = n + ' items';
+        }
+        /* Close viewer if deleted file was open */
+        if (_vwPath === _delPath) closeViewer();
+      } else {
+        showToast('❌ Delete failed: ' + (d.error||'unknown'), '#dc3545');
+      }
+    })
+    .catch(function(err){
+      _delModal.hide();
+      showToast('❌ Network error: ' + err, '#dc3545');
+    });
+  });
+}
+
+/* ═══════════════════════════════
+   TOAST
+═══════════════════════════════ */
+function showToast(msg, bg){
+  var el = document.getElementById('fm-toast');
+  el.style.background = bg || '#333';
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(el._tid);
+  el._tid = setTimeout(function(){ el.style.display = 'none'; }, 3800);
+}
+</script>
+{% endblock %}
+
+</body>
+</html>

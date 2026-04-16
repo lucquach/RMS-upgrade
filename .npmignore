@@ -1,0 +1,11 @@
+/bin
+/include
+/lib
+/.Python
+__pycache__
+.DS_Store
+.vscode
+node_modules/
+/console_logs
+/DEMO
+mobilesecurity.py

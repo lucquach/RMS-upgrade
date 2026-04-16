@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <!-- head and css -->
+  {% include 't_head.html' %}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.js" integrity="sha512-aMGMvNYu8Ue4G+fHa359jcPb1u+ytAF+P2SCb+PxrjCdO3n3ZTxJ30zuH39rimUggmTwmh2u7wvQsDTHESnmfQ==" crossorigin="anonymous">
+  </script>
+</head>
+
+<body>
+  <div class="d-flex" id="wrapper">
+    <!-- Sidebar -->
+    {% include 't_sidebar.html' %}
+
+    <!-- Page Content -->
+    <div id="page-content-wrapper">
+
+      <!-- Navbar -->
+      {% include 't_navbar.html' %}
+
+      <!-- Model View -->
+      <div class="modal fade" id="ModalFilterView">
+        <div class="modal-dialog modal-xl">
+          <div class="modal-content">
+
+            <!-- Modal Header -->
+            <div class="modal-header">
+              <h4 class="modal-title">Select a Class or directly one of its methods and start playing with it</h4>
+              <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <!-- Modal body -->
+            <div class="modal-body">
+              <!-- scrollbox -->
+              <div id=scrollbox>
+                <!-- Search Bar and Table -->
+                <div class="col-sm-12">
+                  <table class="table table-sm table-dark table-bordered">
+                    <thead>
+                      <tr>
+                        <th style='width: 3%'> index</th>
+                        <th style='width: 27%'> classes</th>
+                        <th style='width: 55%'> methods</th>
+                      </tr>
+                    </thead>
+                    <tbody id="MainTable_Filter">
+                      <h3>Classes and Methods</h3>
+                      <p>Use the search bar below to quickly filter results:
+                        {% if loaded_methods|length > 0 %}
+                        {% if methods_hooked_and_executed|length > 0 %}
+                        <button 
+                           onclick="apply_filter('executed')"
+                           class="btn btn-success btn-sm">
+                           Executed ✅
+                        </button>
+                        {% endif %}
+                        <button 
+                           onclick="apply_filter('native')"
+                           class="btn btn-danger btn-sm">
+                           Native
+                        </button>
+                        <button 
+                           onclick="apply_filter('boolean')"
+                           class="btn btn-info btn-sm">
+                           Boolean
+                        </button>
+                        <button 
+                           onclick="apply_filter('clear')"
+                           class="btn btn-dark btn-sm">
+                           Clear
+                        </button>
+                      {% endif %}
+                      </p>
+                      <input class="form-control" id="UserInput_Filter" type="text" placeholder="Search..">
+                      <br>
+                      <!-- Legenda -->
+                      {% if methods_hooked_and_executed|length > 0 %}
+                      <p>✅&nbsp;&nbsp;= the <b>hooked method has been executed</b> by the app - <a href="/heap_search"><b>Refresh Page</b></a></p> 
+                      {% endif %}
+                      <!-- Legenda -->
+                      {% for class_name in loaded_classes %}{% set class_loop = loop %}
+                      <tr><td><center>{{ loop.index0 }}</center></td><td><a href=heap_search?class_index={{class_loop.index0}}>{{class_name}}</a></td>
+                        <td><pre><code class=Java>{% for method_name in loaded_methods[class_name] %}{% set method_loop = loop %}<a href=heap_search?class_index={{class_loop.index0}}&method_index={{method_loop.index0}}>{% if "Class: "+class_name+"\nMethod: "+method_name["ui_name"]+"\n" in methods_hooked_and_executed %}✅ {% endif %}{{method_name["ui_name"]}};</a><br>{% endfor %}</code></pre></td></tr>{% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+              <!-- scrollbox -->
+
+            </div>
+
+            <!-- Modal footer -->
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="container-fluid">
+        <br>
+        <h2>Heap Search 💣 - Select a Class and call its methods 🕹</h2>
+        <div class="border-top my-3"></div>
+        
+        <form action="/eval_script_and_redirect" method="post">
+
+        <div class="row">
+          <div class="col-sm-2 align-self-center">
+            <!-- Dropdown menu -->
+            <center>
+            <button type="button" data-toggle="modal" data-target="#ModalFilterView"
+              class="btn btn-danger dropdown-toggle">
+              Select a Class
+            </button>
+            <br>
+            <br>
+            <input type=submit value="Run Heap Search" class="btn btn-success">
+            </center>
+            <br>
+          </div> <!-- end col -->
+          <div class="col-sm-10">
+            <!-- Textarea with overload -->
+            <h3>Heap Search Template - <font class=text-primary>{{selected_class}}</font>
+            </h3>
+            
+              <input type=hidden name=redirect value=heap_search>
+
+              <textarea id=hooktable name=frida_custom_script
+                class="form-control">{{ heap_template_str|safe }}</textarea>
+            </form>
+          </div> <!-- end col -->
+
+        </div> <!-- end row -->
+        <div class="row">
+          <div class="col-sm-12">
+              <h3>Heap Search - Console Output </h3>
+              <textarea id=heap_search_console 
+                        name=heap_search_console 
+                        class="form-control">{{heap_search_console_output_str|safe }}</textarea>
+              <br>
+          </div>
+      </div><!-- /#row -->
+      </div>
+      <!-- /#container-fluid -->
+
+    </div>
+    <!-- /#page-content-wrapper -->
+
+  </div>
+  <!-- /#wrapper -->
+
+  <!-- Javascript loading -->
+  {% include 't_js_script.html' %}
+
+  {% block scripts %}
+  <script>
+    var editor = CodeMirror.fromTextArea(hooktable, {
+        lineNumbers: true,
+        mode: 'javascript',
+        theme: 'dracula'
+    });
+    editor.setSize("100%",400);
+  </script> 
+
+  <script>
+    var heap_search_editor = CodeMirror.fromTextArea(heap_search_console, {
+        lineNumbers: true,
+        mode: 'javascript',
+        theme: 'dracula',
+        readOnly: true
+    });
+    heap_search_editor.setSize("100%",250);
+    
+  </script>
+  <script>
+    //Set cursors always at the bottom 
+    heap_search_editor.setCursor(heap_search_editor.lineCount(), 0);
+
+    //const socket = io.connect('//' + document.domain + ':' + location.port + '/console');
+    const socket = io.connect()
+    
+    socket.on('heap_search', function(msg) {
+        if(msg.data.length) {
+            heap_search_editor.setValue(heap_search_editor.getValue()+msg.data);
+            heap_search_editor.setCursor(heap_search_editor.lineCount(), 0)
+        }
+    });
+  </script> 
+
+  <!-- quick filters -->
+  <script>
+    function apply_filter(filter){ 
+      if(filter=="executed") 
+        document.getElementById("UserInput_Filter").value = "✅";
+      if(filter=="native") 
+        document.getElementById("UserInput_Filter").value = "native";
+      if(filter=="boolean") 
+        document.getElementById("UserInput_Filter").value = "boolean";
+      if(filter=="clear")
+        document.getElementById("UserInput_Filter").value = "";
+      
+      //simulate keyup
+      $('#UserInput_Filter').keyup();
+    }
+  </script>
+
+  <!-- Set current Page as active in the NavBar -->
+  <script>
+    $(document).ready(function () {
+      $(".nav li").removeClass("active");
+      $('#heap_search').addClass('active');
+    });
+    </script>
+  <!-- Set current Page as active in the NavBar -->
+
+  {% endblock %}
+
+</body>
+
+</html>

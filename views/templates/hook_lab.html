@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <!-- head and css -->
+  {% include 't_head.html' %}
+</head>
+
+<body>
+  <div class="d-flex" id="wrapper">
+    <!-- Sidebar -->
+    {% include 't_sidebar.html' %}
+
+    <!-- Page Content -->
+    <div id="page-content-wrapper">
+
+      <!-- Navbar -->
+      {% include 't_navbar.html' %}
+
+      <!-- Model View -->
+      <div class="modal fade" id="ModalFilterView">
+        <div class="modal-dialog modal-xl">
+          <div class="modal-content">
+
+            <!-- Modal Header -->
+            <div class="modal-header">
+              <h4 class="modal-title">Select a Class and start playing with its methods</h4>
+              <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <!-- Modal body -->
+            <div class="modal-body">
+              <!-- scrollbox -->
+              <div id=scrollbox>
+                <!-- Search Bar and Table -->
+                <div class="col-sm-12">
+                  <table class="table table-sm table-dark table-bordered">
+                    <thead>
+                      <tr>
+                        <th style='width: 3%'> index</th>
+                        <th style='width: 27%'> classes</th>
+                        <th style='width: 55%'> methods</th>
+                      </tr>
+                    </thead>
+                    <tbody id="MainTable_Filter">
+                      <h3>Classes and Methods</h3>
+                      <p>Use the search bar below to quickly filter results:
+                        {% if loaded_methods|length > 0 %}
+                        {% if methods_hooked_and_executed|length > 0 %}
+                        <button 
+                           onclick="apply_filter('executed')"
+                           class="btn btn-success btn-sm">
+                           Executed ✅
+                        </button>
+                        {% endif %}
+                        <button 
+                           onclick="apply_filter('native')"
+                           class="btn btn-danger btn-sm">
+                           Native
+                        </button>
+                        <button 
+                           onclick="apply_filter('boolean')"
+                           class="btn btn-info btn-sm">
+                           Boolean
+                        </button>
+                        <button 
+                           onclick="apply_filter('clear')"
+                           class="btn btn-dark btn-sm">
+                           Clear
+                        </button>
+                      {% endif %}
+                      </p>
+                      <input class="form-control" id="UserInput_Filter" type="text" placeholder="Search..">
+                      <br>
+                      <!-- Legenda -->
+                      {% if methods_hooked_and_executed|length > 0 %}
+                      <p>✅&nbsp;&nbsp;= the <b>hooked method has been executed</b> by the app - <a href="/hook_lab"><b>Refresh Page</b></a></p> 
+                      {% endif %}
+                      <!-- Legenda -->
+                      {% for class_name in loaded_classes %}{% set class_loop = loop %}
+                      <tr><td><center>{{ loop.index0 }}</center></td><td><a href=hook_lab?class_index={{class_loop.index0}}>{{class_name}}</a></td>
+                        <td><pre><code class=Java>{% for method_name in loaded_methods[class_name] %}{% set method_loop = loop %}<a href=hook_lab?class_index={{class_loop.index0}}&method_index={{method_loop.index0}}>{% if "Class: "+class_name+"\nMethod: "+method_name["ui_name"]+"\n" in methods_hooked_and_executed %}✅ {% endif %}{{method_name["ui_name"]}};</a><br>{% endfor %}</code></pre></td></tr>{% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+              <!-- scrollbox -->
+
+            </div>
+
+            <!-- Modal footer -->
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="container-fluid">
+        <br>
+        <h2>Hook LAB 🔮 - Select a Class and start playing with its methods 🕹</h2>
+        <div class="border-top my-3"></div>
+
+        <div class="row">
+
+          <div class="col-sm-12">
+            <!-- Dropdown menu -->
+            <form action="/load_frida_script" method="post">
+            <button type="button" 
+                    data-toggle="modal" 
+                    data-target="#ModalFilterView"
+                    class="btn btn-danger dropdown-toggle">
+              Select a Class 
+            </button>
+            &nbsp;→&nbsp;
+            <input type=submit 
+                    value="Run Hook" 
+                    class="btn btn-success">
+            <br>
+            <br>
+          </div>
+
+        </div>
+
+        <div class="row">
+          <div class="col-sm-12">
+            <!-- Textarea with overload -->
+            <h3>Hook Template - <font class=text-primary>{{ selected_class}}</font></h3>
+            
+              <input type=hidden name=choice value=4>
+
+              <textarea id=hooktable name=frida_custom_script
+                class="form-control">{{ hook_template_str|safe }}</textarea>
+              <br>
+            </form>
+          </div>
+
+        </div>
+      </div>
+      <!-- /#container-fluid -->
+
+    </div>
+    <!-- /#page-content-wrapper -->
+
+  </div>
+  <!-- /#wrapper -->
+
+  <!-- Javascript loading -->
+  {% include 't_js_script.html' %}
+
+  {% block scripts %}
+  <script>
+    var editor = CodeMirror.fromTextArea(hooktable, {
+        lineNumbers: true,
+        mode: 'javascript',
+        theme: 'dracula'
+    });
+    editor.setSize("100%",550);
+  </script> 
+
+  <!-- quick filters -->
+  <script>
+    function apply_filter(filter){ 
+      if(filter=="executed") 
+        document.getElementById("UserInput_Filter").value = "✅";
+      if(filter=="native") 
+        document.getElementById("UserInput_Filter").value = "native";
+      if(filter=="boolean") 
+        document.getElementById("UserInput_Filter").value = "boolean";
+      if(filter=="clear")
+        document.getElementById("UserInput_Filter").value = "";
+      
+      //simulate keyup
+      $('#UserInput_Filter').keyup();
+    }
+  </script>
+
+  <!-- Set current Page as active in the NavBar -->
+  <script>
+    $(document).ready(function () {
+      $(".nav li").removeClass("active");
+      $('#hook_lab').addClass('active');
+    });
+    </script>
+  <!-- Set current Page as active in the NavBar -->
+  
+  {% endblock %}
+
+</body>
+
+</html>
