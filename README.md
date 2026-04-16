@@ -1,20 +1,4 @@
-
-# Runtime Mobile Security (RMS) 📱🔥 #
-
-![RMS_logo](/views/static/RMS_Github_Header.png)
-
-![npm version](https://img.shields.io/npm/v/rms-runtime-mobile-security)
-![npm downloads](https://img.shields.io/npm/dm/rms-runtime-mobile-security)
-![bundle size](https://img.shields.io/bundlephobia/minzip/rms-runtime-mobile-security)
-![license](https://img.shields.io/npm/l/rms-runtime-mobile-security)
-![GitHub stars](https://img.shields.io/github/stars/m0bilesecurity/rms-runtime-mobile-security)
-![GitHub forks](https://img.shields.io/github/forks/m0bilesecurity/rms-runtime-mobile-security)
-
-<!---
-[![NPM](https://nodei.co/npm/rms-runtime-mobile-security.png)](https://npmjs.org/package/rms-runtime-mobile-security)
--->
-
-by [@mobilesecurity_](https://twitter.com/mobilesecurity_) 
+# Runtime Mobile Security (RMS) 📱🔥
 
 **Runtime Mobile Security (RMS)**, powered by [FRIDA](https://github.com/frida/frida), is a powerful web interface that helps you to manipulate <b>Android and iOS Apps</b> at Runtime. 
 
@@ -177,11 +161,11 @@ Stetho is a sophisticated debug bridge for Android applications. When enabled, d
 
 ![DEMO_9](/DEMO/Android/DEMO_9_Stetho.gif)
 
-## 10. File Manager [BETA]  ##
-
-A simple File Manager has been implemented to help you exploring app's private folders and files. **This feature is still in BETA.**
-
-**improvement:** [frida-fs](https://github.com/nowsecure/frida-fs) needs to be implemented to enable files download directly from the browser (File Manager TAB).
+## 10. File Manager [Upgrade]  ##
+Updated: 
+Direct View content file
+Direct Download File
+Direct Delete single file/ Delete multiple file
 
 ![DEMO_11_Android](/DEMO/Android/DEMO_11_File_Manager.png)
 
