@@ -174,9 +174,12 @@ Direct Download File
 
 Direct Delete single file/ Delete multiple file
 
-![DEMO_11_Android](/DEMO/Android/DEMO_11_File_Manager.png)
 
-![DEMO_11_iOS](/DEMO/iOS/DEMO_11_File_Manager.gif)
+<img width="1855" height="906" alt="image" src="https://github.com/user-attachments/assets/7c95cb71-854f-4f06-b141-da8176d2db1d" />
+
+
+<img width="1855" height="909" alt="image" src="https://github.com/user-attachments/assets/493e69c3-ebe0-4612-9959-294430af0015" />
+
 
 ## 11. Static Analysis - iOS Only  ##
 ![DEMO_12_iOS](/DEMO/iOS/DEMO_12_Static_Analysis.gif)
